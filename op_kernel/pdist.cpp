@@ -157,36 +157,43 @@ public:
         pipe.InitBuffer(QY, 2, 1024 * 4);
     }
     __aicore__ inline void Process() {
-        for (int i = st; i < ed; ++i) {
-            int index = (2 * n - 2 - i + 1) * i / 2;
-            LocalTensor<T> a_tmp = QA.AllocTensor<T>();
-            DataCopy(a_tmp, xGm[i * m], copym);
-            QA.EnQue(a_tmp);
-            LocalTensor<T> a = QA.DeQue<T>();
-            LocalTensor<T> y = QY.AllocTensor<T>();
-            int length = n - i - 1;
-            length = (length * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
-            Duplicate(y, 0.0f, length);
-            PipeBarrier<PIPE_V>();
-            for (int j = i + 1; j < n; ++j) {
-                LocalTensor<T> b_tmp = QB.AllocTensor<T>();
-                DataCopy(b_tmp, xGm[j * m], copym);
-                QB.EnQue(b_tmp);
-                LocalTensor<T> b = QB.DeQue<T>();
-                Sub(b, a, b, copym);
-                Mul(b, b, b, copym);
-                Sum(y[j - (i + 1)], b, SumParams{1, copym, m});
-                QB.FreeTensor(b);
+        for(int tt = 0; tt < 2; tt++){
+            if(tt == 1){
+                int x = st, y = ed;
+                st = n - y;
+                ed = n - x;
             }
-            Sqrt(y, y, length);
-            QY.EnQue<T>(y);
-            QA.FreeTensor(a);
-            LocalTensor<T> y_tmp = QY.DeQue<T>();
+            for (int i = st; i < ed; ++i) {
+                int index = (2 * n - 2 - i + 1) * i / 2;
+                LocalTensor<T> a_tmp = QA.AllocTensor<T>();
+                DataCopy(a_tmp, xGm[i * m], copym);
+                QA.EnQue(a_tmp);
+                LocalTensor<T> a = QA.DeQue<T>();
+                LocalTensor<T> y = QY.AllocTensor<T>();
+                int length = n - i - 1;
+                length = (length * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
+                Duplicate(y, 0.0f, length);
+                PipeBarrier<PIPE_V>();
+                for (int j = i + 1; j < n; ++j) {
+                    LocalTensor<T> b_tmp = QB.AllocTensor<T>();
+                    DataCopy(b_tmp, xGm[j * m], copym);
+                    QB.EnQue(b_tmp);
+                    LocalTensor<T> b = QB.DeQue<T>();
+                    Sub(b, a, b, copym);
+                    Mul(b, b, b, copym);
+                    Sum(y[j - (i + 1)], b, SumParams{1, copym, m});
+                    QB.FreeTensor(b);
+                }
+                Sqrt(y, y, length);
+                QY.EnQue<T>(y);
+                QA.FreeTensor(a);
+                LocalTensor<T> y_tmp = QY.DeQue<T>();
 
-            SetAtomicAdd<T>();
-            DataCopy(yGm[index], y_tmp, length);
-            SetAtomicNone();
-            QY.FreeTensor(y_tmp);
+                SetAtomicAdd<T>();
+                DataCopy(yGm[index], y_tmp, length);
+                SetAtomicNone();
+                QY.FreeTensor(y_tmp);
+            }
         }
     }
 
