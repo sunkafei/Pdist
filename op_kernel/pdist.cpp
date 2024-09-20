@@ -166,7 +166,7 @@ public:
         yGm.SetGlobalBuffer((__gm__ T*)y, n * (n - 1) / 2);
         pipe.InitBuffer(QA, 2, 1024 * sizeof(T) * packNumber);
         pipe.InitBuffer(QB, 2, 1024 * sizeof(T) * packNumber);
-        pipe.InitBuffer(QY, 2, 1024 * sizeof(T) * packNumber);
+        pipe.InitBuffer(QY, 2, 1024 * sizeof(T));
     }
     __aicore__ inline void Process() {
         for(int tt = 0; tt < 2; tt++){
