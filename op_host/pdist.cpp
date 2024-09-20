@@ -32,12 +32,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     uint32_t core_remain = (n + 1) / 2 - aivNum * core_size;
 
-    for(int i = 0; i < aivNum; i++){
-        int st = core_size * i + (i < core_remain ? i : core_remain);
-        int ed = st + core_size + (i < core_remain ? 1 : 0);
-        std::cout << st << " " << ed << " " << n - ed << " " << n - st << std::endl;
-    }
-
     tiling.set_core_size(core_size);
     tiling.set_core_remain(core_remain);
 
