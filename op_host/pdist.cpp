@@ -14,9 +14,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
   tiling.set_n(n);
   auto m = context->GetInputShape(0)->GetStorageShape().GetDim(1);
   tiling.set_m(m);
+  int bits = 0;
+  for (int i = 0; i < 31; ++i) if (m & (1 << i)) {
+    bits += 1;
+  }
+  tiling.set_single_bits(bits == 1 && m >= 32);
+
   std::cout << "p: " << p << std::endl;
   std::cout << "n: " << n << std::endl;
   std::cout << "m: " << m << std::endl;
+  std::cout << "bits: " << bits << std::endl;
 
   context->SetBlockDim(1);
   tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
