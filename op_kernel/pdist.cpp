@@ -151,7 +151,7 @@ private:
 };
 class PdistKernal {
     using T = float;
-    static constexpr int packNumber = 2;
+    static constexpr int packNumber = 8;
 public:
     __aicore__ inline PdistKernal() {}
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, float p, int n, int m, uint32_t core_size, uint32_t core_remain) {
