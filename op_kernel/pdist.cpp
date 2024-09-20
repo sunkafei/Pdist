@@ -181,9 +181,8 @@ public:
                 DataCopy(a_tmp, xGm[i * m], copym);
                 QA.EnQue(a_tmp);
                 LocalTensor<T> a = QA.DeQue<T>();
-                for (int i = 1; i < packNumber; ++i) {
-                    Adds(a[i * m], a, T(0), copym);
-                    PipeBarrier<PIPE_V>();
+                for (int i = 1; i < packNumber; i *= 2) {
+                    Adds(a[i * m], a, T(0), copym * i);
                 }
                 LocalTensor<T> y = QY.AllocTensor<T>();
                 int length = n - i - 1;
@@ -199,9 +198,6 @@ public:
                     Sub(b, a, b, copym * gsize);
                     Mul(b, b, b, copym * gsize);
                     GroupReduce(y[j - (i + 1)], b, m, gsize);
-                    //GroupReduce(y[j - (i + 1)], b, m, 1);
-                    //GroupReduce(y[j - (i + 1) + 1], b[m], m, 1);
-
                     QB.FreeTensor(b);
                 }
                 Sqrt(y, y, length);
