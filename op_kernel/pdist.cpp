@@ -142,12 +142,14 @@ class PdistKernal {
 public:
     using T = float;
     __aicore__ inline PdistKernal() {}
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, float p, int n, int m) {
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, float p, int n, int m, uint32_t core_size, uint32_t core_remain) {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
         this->p = p;
         this->n = n;
         this->m = m;
         this->copym = (m * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
+        this->st = core_size * GetBlockIdx() + (GetBlockIdx() < core_remain ? GetBlockIdx() : core_remain);
+        this->ed = this->st + core_size + (GetBlockIdx() < core_remain ? 1 : 0);
         xGm.SetGlobalBuffer((__gm__ T*)x, n * m);
         yGm.SetGlobalBuffer((__gm__ T*)y, n * (n - 1) / 2);
         pipe.InitBuffer(QA, 2, 1024 * 4);
@@ -155,13 +157,17 @@ public:
         pipe.InitBuffer(QY, 2, 1024 * 4);
     }
     __aicore__ inline void Process() {
-        int index = 0;
-        for (int i = 0; i < n; ++i) {
+        for (int i = st; i < ed; ++i) {
+            int index = (2 * n - 2 - i + 1) * i / 2;
             LocalTensor<T> a_tmp = QA.AllocTensor<T>();
             DataCopy(a_tmp, xGm[i * m], copym);
             QA.EnQue(a_tmp);
             LocalTensor<T> a = QA.DeQue<T>();
             LocalTensor<T> y = QY.AllocTensor<T>();
+            int length = n - i - 1;
+            length = (length * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
+            Duplicate(y, 0.0f, length);
+            PipeBarrier<PIPE_V>();
             for (int j = i + 1; j < n; ++j) {
                 LocalTensor<T> b_tmp = QB.AllocTensor<T>();
                 DataCopy(b_tmp, xGm[j * m], copym);
@@ -175,8 +181,6 @@ public:
                 Sum(y[j - (i + 1)], b, SumParams{1, copym, m});
                 QB.FreeTensor(b);
             }
-            int length = n - i - 1;
-            length = (length * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
             Ln(y, y, length);
             Muls(y, y, (T)(1.0f / p), length);
             Exp(y, y, length);
@@ -184,9 +188,10 @@ public:
             QA.FreeTensor(a);
             LocalTensor<T> y_tmp = QY.DeQue<T>();
 
+            SetAtomicAdd<T>();
             DataCopy(yGm[index], y_tmp, length);
+            SetAtomicNone();
             QY.FreeTensor(y_tmp);
-            index += n - i - 1;
         }
     }
 
@@ -198,15 +203,16 @@ private:
     float p;
     uint32_t n;
     uint32_t m, copym;
+    uint32_t st, ed;
 };
 extern "C" __global__ __aicore__ void pdist(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     if (sizeof(DTYPE_X) == 4 && tiling_data.single_bits) {
         PdistKernal op;
-        op.Init(x, y, tiling_data.p, tiling_data.n, tiling_data.m);
-        for (int i = 0; i < 2; ++i) {
+        op.Init(x, y, tiling_data.p, tiling_data.n, tiling_data.m, tiling_data.core_size, tiling_data.core_remain);
+        // for (int i = 0; i < 2; ++i) {
             op.Process();
-        }
+        // }
     }
     else {
         BruteForce<DTYPE_X> op;

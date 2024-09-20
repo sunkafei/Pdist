@@ -96,13 +96,18 @@ function main {
     # 4. 运行可执行文件
     cd $CURRENT_DIR/output
     echo "INFO: execute op!"
-    timeout 30 ./execute_op
+    timeout 30 msprof --application="execute_op" --output=./
 
     if [ $? -ne 0 ]; then
         echo "ERROR: acl executable run failed! please check your project!"
         return 1
     fi
     echo "INFO: acl executable run success!"
+
+    time_ust=$(awk -F, '{print $(NF-37)}' $(find ./ -name op_summary*.csv) | tail -n 1)
+    time_base=167
+    time_ust=$(printf "%.0f" $time_ust)   
+    echo $time_ust
 
     # 5. 比较真值文件
     cd $CURRENT_DIR
