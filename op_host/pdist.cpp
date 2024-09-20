@@ -1,19 +1,24 @@
 
 #include "pdist_tiling.h"
 #include "register/op_def_registry.h"
-
+#include <iostream>
 
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
   PdistTilingData tiling;
-  const gert::StorageShape* x1_shape = context->GetInputShape(0);
-  int32_t data_sz = 1;
-  for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
-    data_sz *= x1_shape->GetStorageShape().GetDim(i);
-  tiling.set_size(data_sz);
-  context->SetBlockDim(8);
+  auto p = *context->GetAttrs()->GetFloat(0);
+  tiling.set_p(p);
+  auto n = context->GetInputShape(0)->GetStorageShape().GetDim(0);
+  tiling.set_n(n);
+  auto m = context->GetInputShape(0)->GetStorageShape().GetDim(1);
+  tiling.set_m(m);
+  std::cout << "p: " << p << std::endl;
+  std::cout << "n: " << n << std::endl;
+  std::cout << "m: " << m << std::endl;
+
+  context->SetBlockDim(1);
   tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
   context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
