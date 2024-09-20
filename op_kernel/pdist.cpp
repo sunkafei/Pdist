@@ -174,16 +174,11 @@ public:
                 QB.EnQue(b_tmp);
                 LocalTensor<T> b = QB.DeQue<T>();
                 Sub(b, a, b, copym);
-                Abs(b, b, copym);
-                Ln(b, b, copym);
-                Muls(b, b, (T)p, copym);
-                Exp(b, b, copym);
+                Mul(b, b, b, copym);
                 Sum(y[j - (i + 1)], b, SumParams{1, copym, m});
                 QB.FreeTensor(b);
             }
-            Ln(y, y, length);
-            Muls(y, y, (T)(1.0f / p), length);
-            Exp(y, y, length);
+            Sqrt(y, y, length);
             QY.EnQue<T>(y);
             QA.FreeTensor(a);
             LocalTensor<T> y_tmp = QY.DeQue<T>();
@@ -207,12 +202,10 @@ private:
 };
 extern "C" __global__ __aicore__ void pdist(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
-    if (sizeof(DTYPE_X) == 4 && tiling_data.single_bits) {
+    if (sizeof(DTYPE_X) == 4 && tiling_data.single_bits && tiling_data.p == 2.0f) {
         PdistKernal op;
         op.Init(x, y, tiling_data.p, tiling_data.n, tiling_data.m, tiling_data.core_size, tiling_data.core_remain);
-        // for (int i = 0; i < 2; ++i) {
-            op.Process();
-        // }
+        op.Process();
     }
     else {
         BruteForce<DTYPE_X> op;
