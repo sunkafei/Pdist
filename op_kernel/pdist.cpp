@@ -1,13 +1,24 @@
 #include "kernel_operator.h"
 using namespace AscendC;
-template<typename T> __aicore__ inline void Reduce(const LocalTensor<T> &y, const LocalTensor<T> &x, uint32_t length) {
-    while (length > 32 / sizeof(T)) {
-        length >>= 1;
-        Add(x, x, x[length], length);
-        PipeBarrier<PIPE_V>();
+template<typename T> __aicore__ inline void GroupReduce(const LocalTensor<T> &y, const LocalTensor<T> &x, int32_t group_size, int32_t group_count) {
+    static constexpr int32_t SIZE = sizeof(T);
+    static constexpr int32_t ALIGN = 32 / SIZE;
+    const int32_t factor = group_size / (group_size & -group_size);
+    int32_t number = (256 / SIZE) / factor;
+    number |= (number >> 1);
+    number |= (number >> 2);
+    number |= (number >> 4);
+    int32_t reduceCount = (number ^ (number >> 1)) * factor;
+    if (group_size / reduceCount > 1) {
+        if (group_size / reduceCount % ALIGN) {
+            reduceCount /= ALIGN * reduceCount / group_size;
+        }
+        int32_t repeatTimes = group_count * group_size / reduceCount;
+        int32_t repStride = (reduceCount * SIZE - 1) / 32 + 1;
+        WholeReduceSum(x, x, reduceCount, repeatTimes, 1, 1, repStride);
+        group_size /= reduceCount;
     }
-    Sum(y, x, SumParams{1, 32 / sizeof(T), 32 / sizeof(T)});
-    //BlockReduceSum(x, x, 1, 32 / sizeof(T), 1, 1, 8);
+    WholeReduceSum(y, x, group_size, group_count, 1, 1, group_size * SIZE / 32);
 }
 template<typename T> class BruteForce {
 public:
@@ -175,7 +186,8 @@ public:
                 LocalTensor<T> b = QB.DeQue<T>();
                 Sub(b, a, b, copym);
                 Mul(b, b, b, copym);
-                Sum(y[j - (i + 1)], b, SumParams{1, copym, m});
+                GroupReduce(y[j - (i + 1)], b, m, 1);
+
                 QB.FreeTensor(b);
             }
             Sqrt(y, y, length);
