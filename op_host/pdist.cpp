@@ -30,7 +30,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub_size);
     std::cout << "ub_size: " << ub_size << std::endl;
 
-    uint32_t aivNum = 10;
+    uint32_t aivNum = 40;
     uint32_t core_size = (n + 1) / 2 / aivNum;
     if(core_size == 0){
         aivNum = (n + 1) / 2;
