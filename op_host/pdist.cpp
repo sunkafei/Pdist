@@ -1,6 +1,7 @@
 
 #include "pdist_tiling.h"
 #include "register/op_def_registry.h"
+#include "tiling/platform/platform_ascendc.h"
 #include <iostream>
 
 namespace optiling {
@@ -20,10 +21,14 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
   }
   tiling.set_single_bits(bits == 1 && m >= 32);
 
-  std::cout << "p: " << p << std::endl;
-  std::cout << "n: " << n << std::endl;
-  std::cout << "m: " << m << std::endl;
-  std::cout << "bits: " << bits << std::endl;
+    std::cout << "p: " << p << std::endl;
+    std::cout << "n: " << n << std::endl;
+    std::cout << "m: " << m << std::endl;
+    std::cout << "bits: " << bits << std::endl;
+    uint64_t ub_size;
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub_size);
+    std::cout << "ub_size: " << ub_size << std::endl;
 
     uint32_t aivNum = 10;
     uint32_t core_size = (n + 1) / 2 / aivNum;

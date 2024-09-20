@@ -150,8 +150,9 @@ private:
     uint32_t m, copym;
 };
 class PdistKernal {
-public:
     using T = float;
+    static constexpr int packNumber = 2;
+public:
     __aicore__ inline PdistKernal() {}
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, float p, int n, int m, uint32_t core_size, uint32_t core_remain) {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
@@ -163,9 +164,9 @@ public:
         this->ed = this->st + core_size + (GetBlockIdx() < core_remain ? 1 : 0);
         xGm.SetGlobalBuffer((__gm__ T*)x, n * m);
         yGm.SetGlobalBuffer((__gm__ T*)y, n * (n - 1) / 2);
-        pipe.InitBuffer(QA, 2, 1024 * 4);
-        pipe.InitBuffer(QB, 2, 1024 * 4);
-        pipe.InitBuffer(QY, 2, 1024 * 4);
+        pipe.InitBuffer(QA, 2, 1024 * sizeof(T) * packNumber);
+        pipe.InitBuffer(QB, 2, 1024 * sizeof(T) * packNumber);
+        pipe.InitBuffer(QY, 2, 1024 * sizeof(T) * packNumber);
     }
     __aicore__ inline void Process() {
         for(int tt = 0; tt < 2; tt++){
@@ -180,19 +181,26 @@ public:
                 DataCopy(a_tmp, xGm[i * m], copym);
                 QA.EnQue(a_tmp);
                 LocalTensor<T> a = QA.DeQue<T>();
+                for (int i = 1; i < packNumber; ++i) {
+                    Adds(a[i * m], a, T(0), copym);
+                    PipeBarrier<PIPE_V>();
+                }
                 LocalTensor<T> y = QY.AllocTensor<T>();
                 int length = n - i - 1;
                 length = (length * sizeof(T) + 32 - 1) / 32 * 32 / sizeof(T);
                 Duplicate(y, 0.0f, length);
                 PipeBarrier<PIPE_V>();
-                for (int j = i + 1; j < n; ++j) {
+                for (int j = i + 1; j < n; j += packNumber) {
+                    const int gsize = (packNumber < n - j ? packNumber : n - j);
                     LocalTensor<T> b_tmp = QB.AllocTensor<T>();
-                    DataCopy(b_tmp, xGm[j * m], copym);
+                    DataCopy(b_tmp, xGm[j * m], copym * gsize);
                     QB.EnQue(b_tmp);
                     LocalTensor<T> b = QB.DeQue<T>();
-                    Sub(b, a, b, copym);
-                    Mul(b, b, b, copym);
-                    GroupReduce(y[j - (i + 1)], b, m, 1);
+                    Sub(b, a, b, copym * gsize);
+                    Mul(b, b, b, copym * gsize);
+                    GroupReduce(y[j - (i + 1)], b, m, gsize);
+                    //GroupReduce(y[j - (i + 1)], b, m, 1);
+                    //GroupReduce(y[j - (i + 1) + 1], b[m], m, 1);
 
                     QB.FreeTensor(b);
                 }
