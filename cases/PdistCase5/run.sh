@@ -49,8 +49,10 @@ export NPU_HOST_LIB=$ASCEND_HOME_DIR/${arch}-linux/lib64
 function main {
     # 1. 清除算子输出和日志文件
     
+    rm -rf ./input/*
+    rm -rf ./output/*
     # rm ./input/*.bin
-    rm -rf ./output/output*.bin > /dev/null
+    # rm -rf ./output/output*.bin > /dev/null
 
     # 2. 生成或复用输入数据和真值数据 
     if [ -d "./input" ]; then
