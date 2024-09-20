@@ -7,22 +7,32 @@ namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
-  PdistTilingData tiling;
-  auto p = *context->GetAttrs()->GetFloat(0);
-  tiling.set_p(p);
-  auto n = context->GetInputShape(0)->GetStorageShape().GetDim(0);
-  tiling.set_n(n);
-  auto m = context->GetInputShape(0)->GetStorageShape().GetDim(1);
-  tiling.set_m(m);
-  std::cout << "p: " << p << std::endl;
-  std::cout << "n: " << n << std::endl;
-  std::cout << "m: " << m << std::endl;
+    PdistTilingData tiling;
+    auto p = *context->GetAttrs()->GetFloat(0);
+    tiling.set_p(p);
+    auto n = context->GetInputShape(0)->GetStorageShape().GetDim(0);
+    tiling.set_n(n);
+    auto m = context->GetInputShape(0)->GetStorageShape().GetDim(1);
+    tiling.set_m(m);
+    std::cout << "p: " << p << std::endl;
+    std::cout << "n: " << n << std::endl;
+    std::cout << "m: " << m << std::endl;
 
-  context->SetBlockDim(1);
-  tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-  context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    uint32_t aivNum = 10;
+    uint32_t core_size = n / aivNum;
+    if(core_size == 0){
+        aivNum = n;
+    }
+    uint32_t core_remain = n - aivNum * core_size;
 
-  return ge::GRAPH_SUCCESS;
+    tiling.set_core_size(core_size);
+    tiling.set_core_remain(core_remain);
+
+    context->SetBlockDim(aivNum);
+    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+
+    return ge::GRAPH_SUCCESS;
 }
 }
 
